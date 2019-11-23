@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import math
 from optparse import OptionParser
 import os
 from random import random
@@ -14,6 +15,12 @@ class Generator(ABC):
         self.dist = dist
         self.output = output
         self.output_format = output_format
+
+    def normal(self, mu, sigma):
+        return mu + sigma * math.sqrt(-2 * math.log(random())) * math.sin(2 * math.pi * random())
+
+    def is_valid_point(self, x, y):
+        return 0 <= x <= 1 and 0 <= y <= 1
 
     @abstractmethod
     def generate_point(self, i, prev_point):
@@ -40,9 +47,6 @@ class PointGenerator(Generator):
 
         return geometries
 
-    def is_valid_point(self, x, y):
-        return 0 <= x <= 1 and 0 <= y <= 1
-
     def generate_point(self, i, prev_point):
         pass
 
@@ -58,6 +62,32 @@ class UniformGenerator(PointGenerator):
         return [x, y]
 
 
+class DiagonalGenerator(PointGenerator):
+    pass
+
+
+class GaussianGenerator(PointGenerator):
+    def __init__(self, card, geo, dim, dist, output, output_format):
+        super(GaussianGenerator, self).__init__(card, geo, dim, dist, output, output_format)
+
+    def generate_point(self, i, prev_point):
+        x = self.normal(0.5, 0.1)
+        y = self.normal(0.5, 0.1)
+        return [x, y]
+
+
+class SierpinskiGenerator(PointGenerator):
+    pass
+
+
+class BitGenerator(PointGenerator):
+    pass
+
+
+class ParcelGenerator(PointGenerator):
+    pass
+
+
 def main():
     """
     Generate a list of geometries and write the list to file
@@ -71,7 +101,7 @@ def main():
     parser.add_option('-d', '--dim', type='int',
                       help='The dimensionality of the generated geometries. Currently, on two-dimensional data is supported.')
     parser.add_option('-t', '--dist', type='string',
-                      help='The available distributions are: {uniform, diagonal, gaussian, sierpinsky, bit, parcel}')
+                      help='The available distributions are: {uniform, diagonal, gaussian, sierpinsk, bit, parcel}')
     parser.add_option('-o', '--output', type='string', help='Path to the output file')
     parser.add_option('-f', '--format', type='string',
                       help='Output format. Currently the generator supports {csv, wkt}')
@@ -91,8 +121,8 @@ def main():
     elif dist == 'diagonal':
         pass
     elif dist == 'gaussian':
-        pass
-    elif dist == 'sierpinsky':
+        generator = GaussianGenerator(card, geo, dim, dist, output, output_format)
+    elif dist == 'sierpinski':
         pass
     elif dist == 'bit':
         pass
@@ -122,7 +152,6 @@ def main():
         sys.exit()
 
     f.close()
-
 
 
 if __name__ == "__main__":
