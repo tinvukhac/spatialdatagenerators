@@ -93,7 +93,34 @@ class GaussianGenerator(PointGenerator):
 
 
 class SierpinskiGenerator(PointGenerator):
-    pass
+    def __init__(self, card, geo, dim, dist, output, output_format):
+        super(SierpinskiGenerator, self).__init__(card, geo, dim, dist, output, output_format)
+
+    def generate_point(self, i, prev_point):
+        if i == 0:
+            return [0.0, 0.0]
+        elif i == 1:
+            return [1.0, 0.0]
+        elif i == 2:
+            return [0.5, math.sqrt(3) / 2]
+        else:
+            d = self.dice(5)
+
+            if d == 1 or d == 2:
+                return self.get_middle_point(prev_point, [0.0, 0.0])
+            elif d == 3 or d == 4:
+                return self.get_middle_point(prev_point, [1.0, 0.0])
+            else:
+                return self.get_middle_point(prev_point, [0.5, math.sqrt(3) / 2])
+
+    def dice(self, n):
+        return math.floor(random() * n) + 1
+
+    def get_middle_point(self, point1, point2):
+        middle_point = []
+        for i in range(len(point1)):
+            middle_point.append((point1[i] + point2[i]) / 2)
+        return middle_point
 
 
 class BitGenerator(PointGenerator):
@@ -138,15 +165,18 @@ def main():
 
     if dist == 'uniform':
         generator = UniformGenerator(card, geo, dim, dist, output, output_format)
+
     elif dist == 'diagonal':
         percentage = options_dict['percentage']
         buffer = options_dict['buffer']
         generator = DiagonalGenerator(card, geo, dim, dist, output, output_format, percentage, buffer)
-        pass
+
     elif dist == 'gaussian':
         generator = GaussianGenerator(card, geo, dim, dist, output, output_format)
+
     elif dist == 'sierpinski':
-        pass
+        generator = SierpinskiGenerator(card, geo, dim, dist, output, output_format)
+
     elif dist == 'bit':
         pass
     elif dist == 'parcel':
