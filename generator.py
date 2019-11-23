@@ -16,6 +16,9 @@ class Generator(ABC):
         self.output = output
         self.output_format = output_format
 
+    def bernoulli(self, p):
+        return 1 if random() < p else 0
+
     def normal(self, mu, sigma):
         return mu + sigma * math.sqrt(-2 * math.log(random())) * math.sin(2 * math.pi * random())
 
@@ -63,7 +66,20 @@ class UniformGenerator(PointGenerator):
 
 
 class DiagonalGenerator(PointGenerator):
-    pass
+    def __init__(self, card, geo, dim, dist, output, output_format, percentage, buffer):
+        super(DiagonalGenerator, self).__init__(card, geo, dim, dist, output, output_format)
+        self.percentage = percentage
+        self.buffer = buffer
+
+    def generate_point(self, i, prev_point):
+        if self.bernoulli(self.percentage) == 1:
+            x = y = random()
+        else:
+            c = random()
+            d = self.normal(0, self.buffer/5)
+            x = c + d / math.sqrt(2)
+            y = c - d / math.sqrt(2)
+        return [x, y]
 
 
 class GaussianGenerator(PointGenerator):
@@ -102,6 +118,10 @@ def main():
                       help='The dimensionality of the generated geometries. Currently, on two-dimensional data is supported.')
     parser.add_option('-t', '--dist', type='string',
                       help='The available distributions are: {uniform, diagonal, gaussian, sierpinsk, bit, parcel}')
+    parser.add_option('-p', '--percentage', type='float',
+                      help='The percentage (ratio) of the points that are exactly on the line.')
+    parser.add_option('-b', '--buffer', type='float',
+                      help='The size of the buffer around the line where additional geometries are scattered')
     parser.add_option('-o', '--output', type='string', help='Path to the output file')
     parser.add_option('-f', '--format', type='string',
                       help='Output format. Currently the generator supports {csv, wkt}')
@@ -119,6 +139,9 @@ def main():
     if dist == 'uniform':
         generator = UniformGenerator(card, geo, dim, dist, output, output_format)
     elif dist == 'diagonal':
+        percentage = options_dict['percentage']
+        buffer = options_dict['buffer']
+        generator = DiagonalGenerator(card, geo, dim, dist, output, output_format, percentage, buffer)
         pass
     elif dist == 'gaussian':
         generator = GaussianGenerator(card, geo, dim, dist, output, output_format)
