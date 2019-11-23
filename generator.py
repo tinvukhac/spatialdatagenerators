@@ -124,8 +124,22 @@ class SierpinskiGenerator(PointGenerator):
 
 
 class BitGenerator(PointGenerator):
-    pass
+    def __init__(self, card, geo, dim, dist, output, output_format, prob, digits):
+        super(BitGenerator, self).__init__(card, geo, dim, dist, output, output_format)
+        self.prob = prob
+        self.digits = digits
 
+    def generate_point(self, i, prev_point):
+        x = self.bit()
+        y = self.bit()
+        return [x, y]
+
+    def bit(self):
+        num = 0.0
+        for i in range(1, self.digits + 1):
+            c = self.bernoulli(self.prob)
+            num = num + c / (math.pow(2, i))
+        return num
 
 class ParcelGenerator(PointGenerator):
     pass
@@ -138,18 +152,20 @@ def main():
     """
 
     parser = OptionParser()
-    parser.add_option('-c', '--card', type='int', help='The number of records to generate')
+    parser.add_option('-c', '--card', type='int', help='The number of records to generate.')
     parser.add_option('-g', '--geo', type='string',
-                      help='Geometry type. Currently the generator supports {point, rectangle}')
+                      help='Geometry type. Currently the generator supports {point, rectangle}.')
     parser.add_option('-d', '--dim', type='int',
                       help='The dimensionality of the generated geometries. Currently, on two-dimensional data is supported.')
     parser.add_option('-t', '--dist', type='string',
-                      help='The available distributions are: {uniform, diagonal, gaussian, sierpinsk, bit, parcel}')
+                      help='The available distributions are: {uniform, diagonal, gaussian, sierpinsk, bit, parcel}.')
     parser.add_option('-p', '--percentage', type='float',
                       help='The percentage (ratio) of the points that are exactly on the line.')
     parser.add_option('-b', '--buffer', type='float',
-                      help='The size of the buffer around the line where additional geometries are scattered')
+                      help='The size of the buffer around the line where additional geometries are scattered.')
     parser.add_option('-o', '--output', type='string', help='Path to the output file')
+    parser.add_option('-q', '--prob', type='float', help='The probability of setting each bit independently to 1.')
+    parser.add_option('-n', '--digits', type='int', help='The number of binary digits after the fraction point.')
     parser.add_option('-f', '--format', type='string',
                       help='Output format. Currently the generator supports {csv, wkt}')
 
@@ -167,8 +183,7 @@ def main():
         generator = UniformGenerator(card, geo, dim, dist, output, output_format)
 
     elif dist == 'diagonal':
-        percentage = options_dict['percentage']
-        buffer = options_dict['buffer']
+        percentage, buffer = options_dict['percentage'], options_dict['buffer']
         generator = DiagonalGenerator(card, geo, dim, dist, output, output_format, percentage, buffer)
 
     elif dist == 'gaussian':
@@ -178,7 +193,9 @@ def main():
         generator = SierpinskiGenerator(card, geo, dim, dist, output, output_format)
 
     elif dist == 'bit':
-        pass
+        prob, digits = options_dict['prob'], options_dict['digits']
+        generator = BitGenerator(card, geo, dim, dist, output, output_format, prob, digits)
+
     elif dist == 'parcel':
         pass
     else:
