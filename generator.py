@@ -23,8 +23,11 @@ class Generator(ABC):
     def normal(self, mu, sigma):
         return mu + sigma * math.sqrt(-2 * math.log(rand.random())) * math.sin(2 * math.pi * rand.random())
 
-    def is_valid_point(self, x, y):
-        return 0 <= x <= 1 and 0 <= y <= 1
+    def is_valid_point(self, point):
+        for x in point.coordinates:
+            if not (0 <= x <= 1):
+                return False
+        return True
 
     @abstractmethod
     def generate(self):
@@ -42,10 +45,10 @@ class PointGenerator(Generator):
 
         i = 0
         while i < self.card:
-            x, y = self.generate_point(i, prev_point)
+            point = self.generate_point(i, prev_point)
 
-            if self.is_valid_point(x, y):
-                prev_point = [x, y]
+            if self.is_valid_point(point):
+                prev_point = point
                 geometries.append(prev_point)
                 i = i + 1
 
@@ -62,9 +65,8 @@ class UniformGenerator(PointGenerator):
         super(UniformGenerator, self).__init__(card, geo, dim, dist, output, output_format)
 
     def generate_point(self, i, prev_point):
-        x = rand.random()
-        y = rand.random()
-        return [x, y]
+        coordinates = [rand.random() for d in range(self.dim)]
+        return Point(coordinates)
 
 
 class DiagonalGenerator(PointGenerator):
@@ -76,13 +78,13 @@ class DiagonalGenerator(PointGenerator):
 
     def generate_point(self, i, prev_point):
         if self.bernoulli(self.percentage) == 1:
-            x = y = rand.random()
+            coordinates = [rand.random()] * self.dim
         else:
             c = rand.random()
             d = self.normal(0, self.buffer / 5)
-            x = c + d / math.sqrt(2)
-            y = c - d / math.sqrt(2)
-        return [x, y]
+
+            coordinates = [(c + (1 - 2 * (x % 2)) * d / math.sqrt(2)) for x in range(self.dim)]
+        return Point(coordinates)
 
 
 class GaussianGenerator(PointGenerator):
@@ -91,9 +93,8 @@ class GaussianGenerator(PointGenerator):
         super(GaussianGenerator, self).__init__(card, geo, dim, dist, output, output_format)
 
     def generate_point(self, i, prev_point):
-        x = self.normal(0.5, 0.1)
-        y = self.normal(0.5, 0.1)
-        return [x, y]
+        coordinates = [self.normal(0.5, 0.1) for d in range(self.dim)]
+        return Point(coordinates)
 
 
 class SierpinskiGenerator(PointGenerator):
@@ -103,29 +104,29 @@ class SierpinskiGenerator(PointGenerator):
 
     def generate_point(self, i, prev_point):
         if i == 0:
-            return [0.0, 0.0]
+            return Point([0.0, 0.0])
         elif i == 1:
-            return [1.0, 0.0]
+            return Point([1.0, 0.0])
         elif i == 2:
-            return [0.5, math.sqrt(3) / 2]
+            return Point([0.5, math.sqrt(3) / 2])
         else:
             d = self.dice(5)
 
             if d == 1 or d == 2:
-                return self.get_middle_point(prev_point, [0.0, 0.0])
+                return self.get_middle_point(prev_point, Point([0.0, 0.0]))
             elif d == 3 or d == 4:
-                return self.get_middle_point(prev_point, [1.0, 0.0])
+                return self.get_middle_point(prev_point, Point([1.0, 0.0]))
             else:
-                return self.get_middle_point(prev_point, [0.5, math.sqrt(3) / 2])
+                return self.get_middle_point(prev_point, Point([0.5, math.sqrt(3) / 2]))
 
     def dice(self, n):
         return math.floor(rand.random() * n) + 1
 
     def get_middle_point(self, point1, point2):
-        middle_point = []
-        for i in range(len(point1)):
-            middle_point.append((point1[i] + point2[i]) / 2)
-        return middle_point
+        middle_point_coords = []
+        for i in range(len(point1.coordinates)):
+            middle_point_coords.append((point1.coordinates[i] + point2.coordinates[i]) / 2)
+        return Point(middle_point_coords)
 
 
 class BitGenerator(PointGenerator):
@@ -136,9 +137,8 @@ class BitGenerator(PointGenerator):
         self.digits = digits
 
     def generate_point(self, i, prev_point):
-        x = self.bit()
-        y = self.bit()
-        return [x, y]
+        coordinates = [self.bit() for d in range(self.dim)]
+        return Point(coordinates)
 
     def bit(self):
         num = 0.0
@@ -188,7 +188,40 @@ class ParcelGenerator(Generator):
         return geometries
 
 
-class Box:
+class Geometry(ABC):
+
+    def to_string(self, output_format):
+        if output_format == 'csv':
+            return self.to_csv_string()
+        elif output_format == 'wkt':
+            return self.to_wkt_string()
+        else:
+            print('Please check the output format.')
+            sys.exit()
+
+    @abstractmethod
+    def to_csv_string(self):
+        pass
+
+    @abstractmethod
+    def to_wkt_string(self):
+        pass
+
+
+class Point(Geometry):
+
+    def __init__(self, coordinates):
+        self.coordinates = coordinates
+
+    def to_csv_string(self):
+        return ','.join(str(x) for x in self.coordinates)
+
+    def to_wkt_string(self):
+        return 'POINT ({0})'.format(' '.join(str(x) for x in self.coordinates))
+
+
+class Box(Geometry):
+
     def __init__(self, x, y, w, h):
         self.x = x
         self.y = y
@@ -218,15 +251,18 @@ def main():
     parser.add_option('-t', '--dist', type='string',
                       help='The available distributions are: {uniform, diagonal, gaussian, sierpinsk, bit, parcel}.')
     parser.add_option('-p', '--percentage', type='float',
-                      help='The percentage (ratio) of the points that are exactly on the line.')
+                      help='Diagonal distribution: The percentage (ratio) of the points that are exactly on the line.')
     parser.add_option('-b', '--buffer', type='float',
-                      help='The size of the buffer around the line where additional geometries are scattered.')
+                      help='Diagonal distribution: The size of the buffer around the line where additional geometries are scattered.')
     parser.add_option('-o', '--output', type='string', help='Path to the output file')
-    parser.add_option('-q', '--prob', type='float', help='The probability of setting each bit independently to 1.')
-    parser.add_option('-n', '--digits', type='int', help='The number of binary digits after the fraction point.')
+    parser.add_option('-q', '--prob', type='float',
+                      help='Bit distribution: The probability of setting each bit independently to 1.')
+    parser.add_option('-n', '--digits', type='int',
+                      help='Bit distribution: The number of binary digits after the fraction point.')
     parser.add_option('-r', '--split_range', type='float',
-                      help='The minimum tiling range for splitting a box. r = 0 indicates that all the ranges are allowed while r = 0.5 indicates that a box is always split into half.')
-    parser.add_option('-e', '--dither', type='float', help='The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point.')
+                      help='Parcel distribution: The minimum tiling range for splitting a box. r = 0 indicates that all the ranges are allowed while r = 0.5 indicates that a box is always split into half.')
+    parser.add_option('-e', '--dither', type='float',
+                      help='Parcel distribution: The dithering parameter that adds some random noise to the generated rectangles. d = 0 indicates no dithering and d = 1.0 indicates maximum dithering that can shrink rectangles down to a single point.')
     parser.add_option('-f', '--format', type='string',
                       help='Output format. Currently the generator supports {csv, wkt}')
 
@@ -237,7 +273,6 @@ def main():
         card, geo, dim, dist, output, output_format = options_dict['card'], options_dict['geo'], options_dict['dim'], \
                                                       options_dict['dist'], options_dict['output'], options_dict[
                                                           'format']
-        # print('{0}, {1}, {2}, {3}, {4}, {5}'.format(card, geo, dim, dist, output, output_format))
     except RuntimeError:
         print('Please check your arguments')
 
@@ -252,6 +287,10 @@ def main():
         generator = GaussianGenerator(card, geo, dim, dist, output, output_format)
 
     elif dist == 'sierpinski':
+        if dim != 2:
+            print('Currently we only support 2 dimensions for Sierpinski distribution')
+            sys.exit()
+
         generator = SierpinskiGenerator(card, geo, dim, dist, output, output_format)
 
     elif dist == 'bit':
@@ -259,6 +298,10 @@ def main():
         generator = BitGenerator(card, geo, dim, dist, output, output_format, prob, digits)
 
     elif dist == 'parcel':
+        if dim != 2:
+            print('Currently we only support 2 dimensions for Parcel distribution')
+            sys.exit()
+
         split_range, dither = options_dict['split_range'], options_dict['dither']
         generator = ParcelGenerator(card, geo, dim, dist, output, output_format, split_range, dither)
 
@@ -274,24 +317,8 @@ def main():
     output_filename = 'output/{0}.{1}'.format(output, output_format)
     f = open(output_filename, 'w', encoding='utf8')
 
-    if output_format == 'csv':
-        if dist == 'parcel':
-            for g in geometries:
-                f.writelines('{0}\n'.format(g.to_csv_string()))
-        else:
-            for g in geometries:
-                f.writelines('{0}\n'.format(','.join(str(x) for x in g)))
-
-    elif output_format == 'wkt':
-        if dist == 'parcel':
-            for g in geometries:
-                f.writelines('{0}\n'.format(g.to_wkt_string()))
-        else:
-            for g in geometries:
-                f.writelines('POINT ({0})\n'.format(' '.join(str(x) for x in g)))
-    else:
-        print('Please check the output format.')
-        sys.exit()
+    for g in geometries:
+        f.writelines('{0}\n'.format(g.to_string(output_format)))
 
     f.close()
 
