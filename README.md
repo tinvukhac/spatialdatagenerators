@@ -9,5 +9,6 @@ python3 generator.py -h
 ```
 
 ## Demo
+Six kinds of supported distribution. Please feel free to contact us if you want to have other spatial distributions.
 
 ![alt text](demo/sample.png)
