@@ -54,6 +54,24 @@ class PointGenerator(Generator):
 
         return geometries
 
+    def generate_and_write(self):
+
+        output_filename = 'output/{0}.{1}'.format(self.output, self.output_format)
+        f = open(output_filename, 'w', encoding='utf8')
+
+        prev_point = None
+
+        i = 0
+        while i < self.card:
+            point = self.generate_point(i, prev_point)
+
+            if self.is_valid_point(point):
+                prev_point = point
+                f.writelines('{0}\n'.format(prev_point.to_string(self.output_format)))
+                i = i + 1
+
+        f.close()
+
     @abstractmethod
     def generate_point(self, i, prev_point):
         pass
@@ -309,18 +327,20 @@ def main():
         print('Please check the distribution type.')
         sys.exit()
 
-    geometries = generator.generate()
+    generator.generate_and_write()
 
-    if not os.path.exists('output'):
-        os.mkdir('output')
+    # geometries = generator.generate()
+    #
+    # if not os.path.exists('output'):
+    #     os.mkdir('output')
+    #
+    # output_filename = 'output/{0}.{1}'.format(output, output_format)
+    # f = open(output_filename, 'w', encoding='utf8')
+    #
+    # for g in geometries:
+    #     f.writelines('{0}\n'.format(g.to_string(output_format)))
 
-    output_filename = 'output/{0}.{1}'.format(output, output_format)
-    f = open(output_filename, 'w', encoding='utf8')
-
-    for g in geometries:
-        f.writelines('{0}\n'.format(g.to_string(output_format)))
-
-    f.close()
+    # f.close()
 
 
 if __name__ == "__main__":
